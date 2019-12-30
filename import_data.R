@@ -151,7 +151,7 @@ saveRDS(data, "row_data_NIRS.rds")
 setwd(here("inputs/"))
 
 data <- rbind(
- filter(data, Group == "S") %>% mutate(L_NIRS = L_NIRS -2, R_NIRS = R_NIRS -2),
+ filter(data, Group == "S") %>% mutate(L_NIRS = L_NIRS -0, R_NIRS = R_NIRS -0),
  filter(data, Group != "S") %>% mutate(L_NIRS = L_NIRS + 0, R_NIRS = R_NIRS +0)
 )
 

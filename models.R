@@ -60,6 +60,10 @@ rm(gender_sumar)
 
 # the table with the results and its statistic
 
+library(dunn.test)
+dunn.test(sumar$`% dev. Q75`, sumar$Group ,method = "holm",alpha = 0.05)
+dunn.test(sumar$`% time under baseline`, sumar$Group ,method = "holm",alpha = 0.05)
+
 sumar %>% select(c(Group, `% dev. Q25`:`% dev. Q75`,`% time under baseline`)) %>% na.omit %>% 
   group_by(Group) %>% 
   summarise_if(is.numeric, list(~ qwraps2::median_iqr(.))) %>%

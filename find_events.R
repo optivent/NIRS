@@ -63,7 +63,7 @@ sumar <- data %>%
   dplyr::ungroup() %>% 
   purrr::modify_if(~is.numeric(.), ~round(., 3)) %>% 
   arrange(Group, `Age (months)`) 
-# rm(seqle)
+rm(seqle)
 
 
 # swr = function(string, nwrap=25) { # the nwrap defines the width of the text wrapping
@@ -72,7 +72,7 @@ sumar <- data %>%
 
 
 ## Supplementary Table 
-
+library(kableExtra)
 sumar %>%
   mutate('% time under baseline' = paste0(`% time under baseline`, " %")) %>% 
   purrr::modify_if(~is.numeric(.), ~round(., 1)) %>% 
