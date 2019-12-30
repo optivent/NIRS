@@ -20,8 +20,7 @@ clean.it <- function() {
   rm(list = ll, envir = globalenv()); gc() # or sessionInfo()
   if(!require(pacman))install.packages("pacman")
   pacman::p_load(tidyverse,magrittr,stringi,readxl,fs,
-                 chron,lubridate,tsibble,zoo,
-                 reshape2,janitor, here)
+                 chron,lubridate,tsibble,zoo, here)
 }
 clean.it() # clean the environment and unload and reload the libraries
 
