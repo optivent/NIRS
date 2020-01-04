@@ -1,0 +1,55 @@
+---
+title: "NIRS2019"
+author: "Gude & Georgevici"
+date: "30 12 2019"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be **generated** that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the `r 2+3` code chunk to prevent printing of the R code that generated the plot.
+
+```{r include = FALSE}
+
+# colorFunc <- "heat.colors"
+colorFunc <- "terrain.colors"
+# colorFunc <- "topo.colors"
+# colorFunc <- "cm.colors"
+# colorFunc <- "rainbow"
+```
+
+Base R comes with many functions for generating colors. The code below demonstrates the `r colorFunc` function. 
+
+## `r colorFunc`
+
+```{r fig.cap = "The Maunga Whau volcano.", echo = FALSE}
+image(volcano, col = get(colorFunc)(200))
+
+
+```
+
+This project contains the materials for lesson 7 of the [R Markdown tutorial](https://rmarkdown.rstudio.com/lesson-7.html). To begin the lesson, press the play button at the top right of the code chunk below. Then refer to the viewer pane.
+
+
