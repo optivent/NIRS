@@ -9,13 +9,49 @@ output:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE)
+
+## Clean the environmend
+clean.it <- function() {
+  basic.packages <- c("package:stats","package:graphics",
+                      "package:grDevices","package:utils",
+                      "package:datasets","package:methods",
+                      "package:base")
+  package.list <- dplyr::setdiff( search()[ifelse(unlist(gregexpr("package:",search()))==1,TRUE,FALSE)] , basic.packages)
+  if (length(package.list)>0)  for(package in package.list) detach(package, character.only=TRUE)
+  ll <- dplyr::setdiff( ls(envir = globalenv()), ## objects to exclude from cleaning
+                        c("clean.it")) 
+  rm(list = ll, envir = globalenv()); gc() # or sessionInfo()
+  if(!require(pacman))install.packages("pacman")
+  pacman::p_load(tidyverse,magrittr,stringi,readxl,fs,
+                 chron,lubridate,tsibble,zoo, here)
+}
+clean.it() # clean the environment and unload and reload the libraries
+
+# not-in-list function
+"%ni%" <- Negate("%in%")
+
 ```
 
-## R Markdown
+## Uninterpolated raw data, without patient 58 (the baseline was not documented)
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
 
-When you click the **Knit** button a document will be **generated** that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r import raw data}
+
+
+
+```
+
+
+
+
+
+
+
+# The NIRS data without interpolation 
+
+
+
 
 ```{r cars}
 summary(cars)

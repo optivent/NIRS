@@ -110,9 +110,11 @@ ggpubr::ggboxplot(na.omit(sumar %>% rename (time_under_BL = `% time under baseli
                   x = "Group", y = "time_under_BL", 
                   color = "Group",
                   ylab = "% time under baseline", 
-                  add = "jitter", shape = "Group",
-                  palette = c("brown", "darkorange", "red")) +
-  stat_compare_means(comparisons = comparison_list) +
-  stat_compare_means(label.y = 130)
+                  add = "jitter",
+                  shape = "Group", 
+                  #fill = "Group",
+                  palette = c("black", "black", "black")) +
+  stat_compare_means(comparisons = comparison_list) 
+  #stat_compare_means(label.y = 130)
 
 

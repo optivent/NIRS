@@ -19,8 +19,8 @@ clean.it <- function() {
                         c("clean.it")) 
   rm(list = ll, envir = globalenv()); gc() # or sessionInfo()
   if(!require(pacman))install.packages("pacman")
-  pacman::p_load(tidyverse,magrittr,stringi,readxl,fs,
-                 chron,lubridate,tsibble,zoo, here)
+  pacman::p_load(tidyverse,magrittr,stringi,readxl,fs,feather,
+                 chron,lubridate,tsibble,zoo,here)
 }
 clean.it() # clean the environment and unload and reload the libraries
 
@@ -40,9 +40,7 @@ list.files(pattern = NULL) %>%
                 col_types = cols(.default = "c")   # perform no transformation, all input as char.
     )
   ) %>% 
-  select(
-    -c(26:ncol(.))
-  ) %>%                            # remove unrelevant columns
+  select(-c(26:ncol(.))) %>%                            # remove unrelevant columns
   mutate_all(
     function(x) {stri_replace_all_fixed(x, " ", "")}
   ) %>%  #  trim whitespaces
@@ -144,14 +142,10 @@ data %<>% group_by(Patient) %>%
 
 data %<>% filter(oid %ni% c(5494:5630, 75273:75433))
 
-saveRDS(data, "row_data_NIRS.rds")
-
-##########################################
-
 setwd(here("inputs/"))
 
 data <- rbind(
- filter(data, Group == "S") %>% mutate(L_NIRS = L_NIRS -0, R_NIRS = R_NIRS -0),
+ filter(data, Group == "S") %>% mutate(L_NIRS = L_NIRS -2, R_NIRS = R_NIRS -2),
  filter(data, Group != "S") %>% mutate(L_NIRS = L_NIRS + 0, R_NIRS = R_NIRS +0)
 )
 
