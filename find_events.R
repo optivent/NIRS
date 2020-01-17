@@ -94,7 +94,7 @@ sumar %>%
 
 # Figure 1. NIRS monitoring in patients with events# patients with events (4,24,89) - see summary
 
-data %>% 
+g <- data %>% 
   filter(Patient %in% c(4,24,89)) %>% 
   filter(PROC_avg < 25) %>%
   filter(PROC_min > -35) %>% 
@@ -108,10 +108,12 @@ data %>%
       paste0(`Alarms (seconds)`," seconds under - 20% "),
       sep="\n")),
     time  = as.double(minutes),
-    'lowest deviation' = PROC_min/100,
-    'average deviation' = PROC_avg/100) %>% 
-  pivot_longer(-c(Patient,time)) %>% 
-  ggplot(aes(x = time,y = value,colour = name, group = name)) + 
+    'lowest deviation (mininum of left and right NIRS sensors)' = PROC_min/100,
+    'average deviation (mean of left and right NIRS sensors)' = PROC_avg/100) %>% 
+  pivot_longer(-c(Patient,time))
+
+
+g %>% ggplot(aes(x = time,y = value,colour = name, group = name)) + 
   geom_point(size = 0.5, alpha = 0.5, na.rm = TRUE) + 
   scale_y_continuous(breaks = seq(-0.3,0.2, by = 0.1),labels = scales::percent) +
   scale_x_continuous(breaks=seq(0, 240, by = 60)) +
@@ -119,17 +121,17 @@ data %>%
   geom_hline(aes(yintercept = 0)) + 
   geom_hline(aes(yintercept = -0.2)) +
   theme(
-    plot.caption = element_text(size = 14, hjust = 0.5),
+    plot.caption = element_text(size = 12, hjust = 0),
     legend.position="bottom",
-    legend.box = "horizontal",
     legend.title = element_blank()
     ) +
   guides(color = guide_legend(override.aes = list(size=5))) +
   facet_wrap(.~Patient, scales = "free_x") +
-  labs(title = "Figure 1. The three children with events",
+  labs(title = "Figure 1. NIRS monitoring in children with events",
        y = "procentual deviation from baseline (0%)",
-       x = "time in minutes")
+       x = "time in minutes") 
 
+rm(g)
 
 ### THE HISTOGRAM
 
@@ -148,7 +150,6 @@ rm(calibr)
   
 boot_data %>% group_by(Group) %>% count()
 
-#boot_NIRS %>% group_by(Group) %>% tally()
 library(scales)
 boot_data %>%
   filter(between(PROC_min, -30, 0)) %>% mutate(PROC_min = PROC_min/100) %>% 
@@ -162,8 +163,12 @@ boot_data %>%
   geom_vline(aes(xintercept = -0.2), colour="red", linetype = "longdash")+
   facet_wrap(~Group) +
   theme_bw(base_size = 16) +
-  labs(subtitle = "Figure 2. Histogram of the % NIRS desaturations", 
+  labs(subtitle = "Figure 2. Histogram of the negative procentual NIRS desaturations", 
        x = "negative procentual deviation from baseline",
        y = "number of observations",
-       caption = "each patient and group is equally represented by bootstrapping")                
+       caption = "
+       Left from the vertical red lines are samples below -20% from baseline, the threshold for alarms.
+       All patients are equally represented by bootstrapping.
+       The vertical axis is logarithmic to highlight the outliers.")+
+  theme(plot.caption = element_text(size = 12, hjust = 0))
 

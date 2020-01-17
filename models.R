@@ -4,7 +4,7 @@
 library(dlookr); dlookr::normality(group_by(sumar,Group)) %>% # grouped by "Group"
   mutate(normality = ifelse(p_value > 0.05, "normal", "non-normal"),
         p_value = format(p_value, scientific = FALSE)) %>% 
-  filter(normality == "normal") %>% arrange(variable) %>% dplyr::select(variable, Group)
+  filter(normality == "normal") %>% arrange(variable) %>% dplyr::select(variable, Group) 
 # Normal variables across all groups are: Duration and % dev. Q25
 
 ## gender repartition in all three groups
@@ -26,6 +26,8 @@ gender_sumar <- sumar %>%
 
 library(dunn.test)
 dunn.test(sumar$Weight, sumar$Group ,method = "holm",alpha = 0.05)
+dunn.test(sumar$`% time under baseline`, sumar$Group, method = "holm", alpha = 0.05)
+dunn.test(sumar$`Duration (minutes)`, sumar$Group, method = "holm", alpha = 0.05)
 dunn.test(sumar$`Age (months)`, sumar$Group ,method = "holm",alpha = 0.05)
 
 # the table with the demographics and duration
@@ -49,30 +51,30 @@ sumar %>% select(Group:Weight,`Duration (minutes)`) %>% na.omit() %>%
   slice(-1) %>% rename(" " = Group) %>% 
   kable(align = "c", "html", booktabs = T,
         caption = "Table 1. Demography and duration of anesthesia / sedation") %>% 
-  kable_styling(bootstrap_options = c("striped", "hover"), 
+  kable_styling(bootstrap_options = c("striped"), 
                 full_width = F, position = "c") %>% 
-  column_spec(1, bold = T) %>% row_spec(5, bold = F, color = "white", background = "#D7261E") %>% 
-  footnote(general = "All values are presented as median value (25th percentile, 75th percentile).
-  % dev. Q25/median/Q75 is the procentual deviation from baseline per patient per group
-  (the 25th percentile, median and 75th percentile)")
+  column_spec(1, bold = T) %>% 
+  #row_spec(5, bold = F, color = "white", background = "#D7261E") %>% 
+  footnote(general = "All values are presented as: median value (25th percentile, 75th percentile).")
 rm(gender_sumar)
 
 
 # the table with the results and its statistic
 
 library(dunn.test)
-dunn.test(sumar$`% dev. Q75`, sumar$Group ,method = "holm",alpha = 0.05)
-dunn.test(sumar$`% time under baseline`, sumar$Group ,method = "holm",alpha = 0.05)
+dunn.test(sumar$`% dev. median`, sumar$Group ,method = "holm",alpha = 0.05)
+timeunderBL <- dunn.test(sumar$`% time under baseline`, sumar$Group ,method = "holm",alpha = 0.05)
+rbind(timeunderBL$comparisons,timeunderBL$P.adjusted) %>% as_tibble() %>% t();rm(timeunderBL)
 
-sumar %>% select(c(Group, `% dev. Q25`:`% dev. Q75`,`% time under baseline`)) %>% na.omit %>% 
+
+sumar %>% select(c(Group, `% dev. median`,`% time under baseline`)) %>% na.omit %>% 
+  rename(`% NIRS deviation from baseline` = `% dev. median`) %>% 
   group_by(Group) %>% 
   summarise_if(is.numeric, list(~ qwraps2::median_iqr(.))) %>%
   ungroup() %>% 
   add_row(
     Group = "p value",
-    `% dev. Q25` = "not significant",
-    `% dev. median` = "not significant",
-    `% dev. Q75` = "p < 0.01 | Kruskal-Wallis",
+    `% NIRS deviation from baseline` = "not significant",
     `% time under baseline` = "p = 0.01 | Kruskal-Wallis") %>% 
   purrr::modify_if(~is.numeric(.), ~round(., 1)) %>%
   t() %>% as_tibble(rownames = " ") %>% setNames(as.character(.[1,])) %>%
@@ -81,40 +83,34 @@ sumar %>% select(c(Group, `% dev. Q25`:`% dev. Q75`,`% time under baseline`)) %>
         caption = "Table 2. Procentual NIRS deviation and time under baseline") %>% 
   kable_styling(bootstrap_options = c("striped", "hover"), 
                 full_width = F, position = "c") %>% 
-  column_spec(1, bold = T) %>% row_spec(4, bold = F, color = "white", background = "#D7261E") %>% 
+  column_spec(1, bold = T) %>% 
+  #row_spec(4, bold = F, color = "white", background = "#D7261E") %>% 
   footnote(general = "All values are presented as median value (25th percentile, 75th percentile).
-  % dev. Q25/median/Q75 is the procentual deviation from baseline per patient per group
+  % dev. Q25/median/Q75 is the procentual deviation from baseline 
   (the 25th percentile, median and 75th percentile)") 
 
 
 ## The GRAPH with the difference in time under the baseline
 
-
-library("ggpubr")
-
-comparison_list <- list(
-  c("Anesthesia with surgery", "Anesthesia without surgery"),
-  c("Anesthesia with surgery", "Sedation"),
-  c("Anesthesia without surgery", "Sedation"))
-
-# ggpubr::ggboxplot(na.omit(sumar %>% rename (median_proc_dev = `% dev. median`)),
-#                   x = "Group", y = "median_proc_dev", 
-#                   color = "Group",
-#                   ylab = "median procentual deviation",
-#                   add = "jitter", shape = "Group",
-#                   palette = c("brown", "darkorange", "red")) +
-#   stat_compare_means(comparisons = comparison_list) +
-#   stat_compare_means(label.y = 57)
-
-ggpubr::ggboxplot(na.omit(sumar %>% rename (time_under_BL = `% time under baseline`)),
-                  x = "Group", y = "time_under_BL", 
-                  color = "Group",
-                  ylab = "% time under baseline", 
-                  add = "jitter",
-                  shape = "Group", 
-                  #fill = "Group",
-                  palette = c("black", "black", "black")) +
-  stat_compare_means(comparisons = comparison_list) 
-  #stat_compare_means(label.y = 130)
-
+sumar %>% select(Group, `% time under baseline`) %>% 
+  rename(time_under_BL = `% time under baseline`) %>% mutate(time_under_BL = time_under_BL/100) %>% 
+  ggplot(aes(x = Group, y = time_under_BL)) +
+  geom_boxplot(aes(fill=Group), width = 0.7) +
+  geom_point(size = 3,shape = 1, position = position_jitter(w = 0.3, h = 0)) + 
+  theme_pubr(base_size = 14) +
+  scale_fill_manual(values = c("grey90", "grey70", "grey50")) + 
+  scale_y_continuous(labels = scales::percent, breaks = c(0, 0.25, 0.5, 0.75, 1.0)) +
+  theme(legend.position = "bottom", legend.direction = "horizontal", legend.title = element_blank(),
+        axis.title.x = element_blank(), axis.text.x = element_blank(), axis.ticks.x = element_blank(),
+        axis.title.y = element_blank(),
+        plot.caption = element_text(size = 14, hjust = 0)) +
+  ggsignif::geom_signif(test="t.test",
+                        comparisons = combn(levels(sumar$Group),2, simplify = F),
+                        step_increase = 0.1) +
+  labs(title = "Figure 3. Procent of time under NIRS baseline"
+  #caption = "
+  #The vertical axis represents the percent of NIRS values
+  #below baseline per child (the small circles). For example, a patient 
+  #plotted at 0% has no NIRS values below its baseline"
+  )
 
