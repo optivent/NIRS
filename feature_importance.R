@@ -49,13 +49,13 @@ rm(scaled_table)
 library(parallel)
 library(doParallel)
 library(rstanarm)
-options(mc.cores =  parallel::detectCores()-1)
+options(mc.cores = parallel::detectCores()-1)
 
 bayes_HLM <- stan_glmer(min.proc.NIRS ~ HF + FIO2 + Weight + Months + (1|ID),
-                        data=anaePLS,
+                        data=anae_scal,
                         family="gaussian",
                         iter = 6000,
-                        chains = 16)
+                        chains = 14)
 library(report)
 bayes_HLM %>% report() %>% to_fulltable()
 bayes_HLM %>% report(standardize="smart", effsize="cohen1988") %>% to_fulltext()
