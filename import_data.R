@@ -206,7 +206,22 @@ saveRDS(data, "NIRS_interpolated.rds")
 
 ##################################################
 
-setwd(here("inputs")); path <- "manual_table.xlsx"
+## IMPORT TABLE DATA
+
+setwd(here("inputs"))
+
+IIDKey <- read_excel("IIDkey.xlsx",
+                     col_types = c("numeric", "text", "date", "date", "numeric", "text",
+                                   rep("numeric", 4))) %>% 
+  group_by(Date = as.Date(Start)) %>% 
+  mutate(uniq_Date = ifelse(n()==1, T, F)) %>% 
+  ungroup() %>% 
+  mutate_at(vars(Start,Stop), hms::as_hms) %>% 
+  rename(cut_Start = Start, cut_Stop = Stop) %>% 
+  filter(Patient != 58)
+
+
+path <- "manual_table.xlsx"
 
 manualtable <- path %>% excel_sheets() %>% 
         purrr::set_names() %>% 
@@ -230,9 +245,14 @@ manualtable <- path %>% excel_sheets() %>%
         mutate(L_proc = 100*(NIRS_li - Lbaseline)/Lbaseline,
                R_proc = 100*(NIRS_re - Rbaseline)/Rbaseline) %>% 
         select(Group, Patient, Gender:Weight, time:SpO2, HF:Comment, # the X's
-               Lbaseline, NIRS_li, L_proc, Rbaseline, NIRS_re, R_proc)  # the Y's
+               Lbaseline, NIRS_li, L_proc, Rbaseline, NIRS_re, R_proc) %>% # the Y's
+        filter(between(HF, 50, 200), between(SpO2, 50, 101), between(FiO2, 19, 101)) %>%
+        select(-c(Comment, time, Gender)) %>% select(-matches("baseline")) %>% 
+        filter_at(vars(L_proc, R_proc), any_vars(!is.na(.))) %>% 
+        mutate(NIRS_proc_min = pmin(L_proc, R_proc, na.rm = TRUE)) %>% select(-c(L_proc, R_proc)) %>% 
+        mutate(NIRS_min  = pmin(NIRS_li, NIRS_re, na.rm = TRUE)) %>% select(-c(NIRS_li, NIRS_re))
 
-rm(path)
+rm(path, IIDKey)
 
 
 manualtable$Group <- case_when(
@@ -241,6 +261,9 @@ manualtable$Group <- case_when(
   manualtable$Group == "S" ~ "Sedation",
   TRUE ~ as.character(manualtable$Group)) %>% 
   as.factor()
+manualtable$Patient %<>% as.factor()
 
-saveRDS(IIDKey, "IIDKey.rds")
-saveRDS(manualtable, "manualtable.rds")
+
+library(feather)
+write_feather(manualtable, "manualtable.feather")
+
