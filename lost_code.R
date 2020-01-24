@@ -52,7 +52,7 @@ bayes_HLM %>% report(standardize="smart", effsize="cohen1988") %>% to_fulltext()
 
 library(itsadug); library(mgcv)
 mod_gam <- mgcv::gam(min.proc.NIRS ~ s(HF) + s(FIO2) + s(ID, bs = 're'),
-                     correlation = corAR1(form = ~ time),
+                     #correlation = corAR1(form = ~ time),
                      data = anae %>% filter(HF < 160),
                      method = "ML") 
 # method = "GCV.Cp"  te(ID, time, bs="fs", m=1, k = 5),
