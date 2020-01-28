@@ -2,6 +2,7 @@
 .Rhistory
 .RData
 .Ruserdata
+inputs.zip
 inputs/
 outputs/
 flights.R
