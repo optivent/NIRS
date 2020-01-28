@@ -1,10 +1,30 @@
 clean.it()
-library(tidyverse); library(zoo)
+library(tidyverse); library(zoo); library(bestNormalize)
 library(tidyr); library(feather); library(here)
 setwd(here("inputs"))
 
-stdize = function(x, ...) {(x - min(x, ...)) / (max(x, ...) - min(x, ...))}
 
+
+stdize = function(x, ...) {(x - min(x, ...)) / (max(x, ...) - min(x, ...))}
+autonorm <- function(x, r, k) (bestNormalize(x, r, k, warn =F)$x.t)
+
+no_interpolation <- read_feather("manualtable.feather") %>% 
+  as_tibble() %>% 
+  filter(!is.na(NIRS_proc_min)) %>% dplyr::select(-c(NIRS_min, timediff)) 
+
+anae <- no_interpolation %>% filter(Group != "Sedation") %>% dplyr::select(-Group) %>% 
+  mutate_if(is.numeric, stdize, na.rm = TRUE) 
+DataExplorer::plot_histogram(anae)
+  
+seda <- select(anti_join(no_interpolation, anae), -Group) %>% mutate_if(is.numeric, stdize, na.rm = TRUE)  
+DataExplorer::plot_histogram(seda)
+
+
+
+
+
+
+ 
 sensibility <- 2 # continous value between 1 and 3  # sensibility for the sampling
 
 manualtable <- read_feather("manualtable.feather") %>% 
@@ -38,13 +58,15 @@ middle_samples <- manualtable %>%
   ungroup()
 
 samples <- rbind(first_and_last, middle_samples) %>% arrange(Patient, timediff) %>%
-   select(-c(timediff, NIRS_min, diff_NIRSproc, NIRS_proc_min, Patient, sampling_prob))
+   select(-c(timediff, NIRS_min, diff_NIRSproc, sampling_prob))
 
 rm(first_and_last, middle_samples)
 
-manualtable %>% group_by(Group, NIRS_deviation) %>% count()
+#manualtable %>% group_by(Group, NIRS_deviation) %>% count()
 
-sample_anae <- samples %>% filter(Group != "Sedation")
+sample_anae_scaled <- samples %>% filter(Group != "Sedation") %>% 
+  dplyr::select(-NIRS_deviation) %>% 
+  mutate_if(is.numeric, autonorm, r = 10, k = 10)
 
 sample_seda <- samples %>% filter(Group == "Sedation")
 
@@ -58,32 +80,42 @@ sample_seda <- samples %>% filter(Group == "Sedation")
 #          tl.col = "black",tl.srt = 45,
 #          order = "hclust")
 
-library(Boruta)
-set.seed(111)
-plot(Boruta(NIRS_deviation ~ ., 
-            data = na.omit(sample_anae), 
-            doTrace = 2), cex.axis=.7, las=2, xlab="", main="Variable Importance")
+# library(Boruta)
+# set.seed(111)
+# plot(Boruta(NIRS_deviation ~ ., 
+#             data = na.omit(sample_anae ), 
+#             doTrace = 2), cex.axis=.7, las=2, xlab="", main="Variable Importance")
+# 
+# plot(Boruta(NIRS_deviation ~ ., 
+#             data = sample_seda %>% select(-c(CO2, BP_sys:BP_mid)), doTrace = 2),
+#      cex.axis=.7, las=2, xlab="", main="Variable Importance")
+############################### MUVR ######################
 
-plot(Boruta(NIRS_deviation ~ ., 
-            data = sample_seda %>% select(-c(CO2, BP_sys:BP_mid)), doTrace = 2),
-     cex.axis=.7, las=2, xlab="", main="Variable Importance")
 
 library(rpart); library(rpart.plot)
 # sample_tree <- rpart(NIRS_deviation ~ ., control = list(maxdepth = 4), data = samples)
 # plot(sample_tree); text(sample_tree)
 # prp(sample_tree)
 
-sample_anae_tree <- rpart(NIRS_deviation ~ ., control = list(maxdepth = 3), data = sample_anae)
+sample_anae_tree <- rpart(NIRS_deviation ~ ., control = list(maxdepth = 3),
+                          data = sample_anae %>% dplyr::select(-HF_proc), 
+                          model = TRUE)
 plot(sample_anae_tree); text(sample_anae_tree)
 prp(sample_anae_tree)
 
-sample_seda_tree <- rpart(NIRS_deviation ~ ., control = list(maxdepth = 4), data = sample_seda)
+table(predict(sample_anae_tree, type="class"), sample_anae$NIRS_deviation)
+
+
+
+sample_seda_tree <- rpart(NIRS_deviation ~ ., control = list(maxdepth = 3), data = sample_seda)
 plot(sample_seda_tree); text(sample_seda_tree)
 prp(sample_seda_tree)
 
 
 library(C50)
-c5tree <- C5.0(NIRS_deviation ~ ., data = sample_anae, trials = 5,
+c5tree <- C5.0(NIRS_deviation ~ ., 
+               data = sample_anae %>% dplyr::select(-c(HF_proc,Group)), 
+               trials = 50,
                control = C5.0Control(winnow = TRUE))
 summary(c5tree)
 C5imp(c5tree)
@@ -124,4 +156,21 @@ summary(mod_gam)
 par(mfrow=c(2,2)); gam.check(mod_gam); par(mfrow=c(1,1))
 
 fvisgam(mod_gam, view=c("HF", "FiO2"), rm.ranef=TRUE, main="fvisgam", dec=1)
+
+#################
+if(!require(pacman))install.packages("pacman")
+pacman::p_load(lme4, glmmLasso, glmnet, mcmc, statmod, cluster,
+               factoextra, randomForest, party, nnet, mclust, MASS,
+               invgamma, coda, corrplot, lmmen, caret, xtable, bestNormalize)
+
+
+library(glmmLasso)
+data(knee)
+knee[,c(2,4:6)]<-scale(knee[,c(2,4:6)],center=TRUE,scale=TRUE)
+knee<-data.frame(knee)
+## fit adjacent category model
+glm.obj <- glmmLasso(pain ~ time + th + age + sex, rnd = NULL,
+                     family = acat(), data = knee, lambda=10,
+                     switch.NR=TRUE, control=list(print.iter=TRUE))
+summary(glm.obj)
 
