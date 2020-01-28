@@ -196,8 +196,7 @@ bayes_HLM %>% report(standardize="smart", effsize="cohen1988") %>% to_fulltext()
 
 library("cgam") # constrained general additive models
 
-data("Rubber", package = "MASS")
-Rubber <- Rubber
+data("Rubber", package = "MASS"); Rubber <- Rubber
 
 fit.decr <- cgam(loss ~ decr(hard) + decr(tens),family = gaussian,data = Rubber)
 fit.s.decr <- cgam(loss ~ s.decr(hard) + s.decr(tens),family = gaussian,data = Rubber)
@@ -242,25 +241,18 @@ ans <- ShapeSelect(NIRS_proc_min ~ shapes(FiO2, set = c("incr")) +
                    data = sample_anae %>% filter(HF < 160))
 
 
-fit.dd <- cgam(NIRS_proc_min ~ s.incr.incr(FiO2, HF, numknots = c(12, 12)), pnt = TRUE,
-               data = sample_anae %>% filter(HF < 160))
-plotpersp(fit.dd)
-summary(fit.dd)
 
 
+fit1 <- cgam(NIRS_proc_min ~ s.incr.incr(FiO2, HF, numknots = c(20, 20)),
+             data = sample_anae %>% filter(HF < 150))
+plotpersp(fit1,  main = "3D Plot of a Smooth Cgam Fit1"); summary(fit1)
 
-fit <- ShapeSelect(NIRS_proc_min ~ shapes(FiO2) + shapes(HF) + (1|as.numeric(Patient)),
+fit2 <- ShapeSelect(NIRS_proc_min ~ shapes(FiO2) + shapes(HF),
                    data = sample_anae %>% filter(HF < 150), genetic = TRUE)
+plotpersp(fit2,  main = "3D Plot of a Smooth Cgam Fit2"); summary(fit2)
 
-
-ans <- cgamm(y ~ s.incr(x) + (1|group), reml=TRUE)
-muhat <- ans$muhat
-plot(x, y, col = group, cex = .6)
-lines(sort(x), mu[order(x)], lwd = 2)
-lines(sort(x), muhat[order(x)], col = 2, lty = 2, lwd = 2)
-legend("topleft", bty = "n", c("true fixed-effect term", "cgamm fit"),
-       col = c(1, 2), lty = c(1, 2), lwd = c(2, 2))
-
+sample_anae$HF %>% DataExplorer::plot_histogram()
+sample_anae$FiO2 %>% DataExplorer::plot_histogram()
 
 
 library(itsadug); library(mgcv)
