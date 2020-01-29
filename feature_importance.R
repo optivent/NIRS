@@ -11,10 +11,10 @@ autonorm <- function(x, r, k) (bestNormalize(x, r, k, warn =F)$x.t)
 no_interpolation <- read_feather("manualtable.feather") %>% as_tibble() %>% 
   filter(!is.na(NIRS_proc_min)) %>% dplyr::select(-c(NIRS_min))
   
-DataExplorer::plot_missing(no_interpolation %>% filter(Group != "Sedation"))
-DataExplorer::plot_histogram(no_interpolation %>% filter(Group != "Sedation"))
-DataExplorer::plot_missing(no_interpolation %>% filter(Group == "Sedation"))
-DataExplorer::plot_histogram(no_interpolation %>% filter(Group == "Sedation"))
+DataExplorer::plot_missing(no_interpolation %>% filter(Group != "Sedation"))   # missing anesthesie
+DataExplorer::plot_histogram(no_interpolation %>% filter(Group != "Sedation")) # histogram anesthesie
+DataExplorer::plot_missing(no_interpolation %>% filter(Group == "Sedation"))   # missing sedation
+DataExplorer::plot_histogram(no_interpolation %>% filter(Group == "Sedation")) # histogram sedation
   
 ######### DRAW REPRESENTATIVE SAMPLES ########################################################
 
@@ -65,6 +65,8 @@ res2 <- cor.mtest(sample_seda %>% select_if(is.numeric), conf.level = .95)
 
 col <- colorRampPalette(c("#BB4444", "#EE9988", "#FFFFFF", "#77AADD", "#4477AA"))
 
+par(mfrow=c(1,1))
+
 corrplot(sample_anae_cor, 
          type = "lower", order = "hclust", method = "color", 
          p.mat = res1$p, sig.level = 0.05, insig = "blank",
@@ -76,6 +78,7 @@ corrplot(sample_seda_cor,
          p.mat = res1$p, sig.level = 0.05, insig = "blank",
          diag = FALSE, tl.col = "black",tl.srt = 45,addCoef.col = "black",
          title = "Correlation Matrix in Sedation", mar=c(0,0,1,0))
+
 
 rm(sample_anae_cor, sample_seda_cor, res1, res2, col)
 
@@ -141,8 +144,9 @@ plotVIP(regrModel.anae.sample, model='med')
 # plotVIP(regrModel.seda, model='med')
 plotVIP(regrModel.seda.sample, model='med')
 
-par(mfrow=c(1,1)); rm(cl, regrModel.anae.sample, regrModel.seda.sample, method, nCore, nOuter, nRep, varRatio, MUVR_sample_anae, MUVR_sample_seda)
-
+par(mfrow=c(1,1)); 
+rm(cl, method, nCore, nOuter, nRep, varRatio, MUVR_sample_anae, MUVR_sample_seda)
+rm(regrModel.anae.sample, regrModel.seda.sample)
 
 #### TREE MODELS PRIMARILY FOR THE CHILDREN UNDER ANESTHESIA #####################
 
@@ -152,13 +156,13 @@ sample_anae_tree <- rpart(NIRS_deviation ~ FiO2 + HF + SpO2 + Months,
                           control = list(maxdepth = 5),
                           data = sample_anae %>% filter(FiO2 > 22, Weight > 6), 
                           model = TRUE)
-plot(sample_anae_tree); text(sample_anae_tree)
+#plot(sample_anae_tree); text(sample_anae_tree)
 prp(sample_anae_tree); par(mfrow=c(1,1))
 
 sample_seda_tree <- rpart(NIRS_deviation ~ Months + Weight + SpO2 + HF + BP_sys + BP_dia + BP_mid,
-                          control = list(maxdepth = 3),
+                          control = list(maxdepth = 2),
                           data = sample_seda)
-plot(sample_seda_tree); text(sample_seda_tree)
+#plot(sample_seda_tree); text(sample_seda_tree)
 prp(sample_seda_tree); par(mfrow=c(1,1))
 
 
@@ -185,7 +189,7 @@ options(mc.cores = parallel::detectCores()-2)
 
 bayes_HLM <- stan_glmer(NIRS_proc_min ~ FiO2 + SpO2 + Weight + HF + (1|Patient),
                         data=scaled_interpolation %>% filter(Group != "Sedation") ,
-                        family="gaussian", iter = 3000, chains = 12)
+                        family="gaussian", iter = 4000, chains = 6)
 
 library(report)
 bayes_HLM %>% report() %>% to_fulltable()
