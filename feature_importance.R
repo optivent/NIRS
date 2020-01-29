@@ -44,7 +44,7 @@ set.seed(111)
 first_and_last <- group_by(interpolation, Patient) %>% slice(c(1,n())) %>% ungroup() 
 middle_samples <- group_by(interpolation, Patient) %>% sample_n(size = 8, replace = FALSE, weight = sampling_prob) %>% ungroup()
 samples <- rbind(first_and_last, middle_samples) %>% arrange(Patient, timediff) %>%
-  select(-c(timediff, sampling_prob, NIRS_min)) 
+  select(-c(sampling_prob, NIRS_min)) 
 sample_anae <- samples %>% filter(Group != "Sedation")
 sample_seda <- samples %>% filter(Group == "Sedation")
   
@@ -254,6 +254,7 @@ plotpersp(fit2,  main = "3D Plot of a Smooth Cgam Fit2"); summary(fit2)
 sample_anae$HF %>% DataExplorer::plot_histogram()
 sample_anae$FiO2 %>% DataExplorer::plot_histogram()
 
+#### ITSADUG #####################################################################
 
 library(itsadug); library(mgcv)
 mod_gam <- mgcv::gam(NIRS_proc_min ~ s(HF) + s(FiO2) + te(Patient, timediff, bs = 're'),
@@ -267,6 +268,28 @@ par(mfrow=c(2,2)); gam.check(mod_gam); par(mfrow=c(1,1))
 
 fvisgam(mod_gam, view=c("HF", "FiO2"), rm.ranef=TRUE, main="fvisgam", dec=1)
 
+
+mod_gam3 <- mgcv::gam(NIRS_proc_min ~ te(HF, SpO2) +
+                        s(Patient, bs = "re"),
+                      #correlation = corAR1(form = ~ timediff),
+                      data = sample_anae %>% 
+                        filter(HF < 150, FiO2 < 90),
+                      method = "ML") 
+fvisgam(mod_gam3, view=c("HF", "SpO2"), rm.ranef=TRUE, main="fvisgam", dec=1)
+summary(mod_gam3)
+
+
+
+
+mod_gam2 <- mgcv::gam(NIRS_proc_min ~ s(HF) + s(FiO2) + 
+                        te(Patient, timediff, bs="fs", m=1, k = 5),
+                     #correlation = corAR1(form = ~ timediff),
+                     data = no_interpolation %>% 
+                       select(Patient, Group, timediff, HF, FiO2, NIRS_proc_min) %>% 
+                       na.omit() %>% filter(Group != "Sedation", HF < 150, FiO2 < 80),
+                     method = "ML") 
+summary(mod_gam2)
+fvisgam(mod_gam2, view=c("HF", "FiO2"), rm.ranef=TRUE, main="fvisgam", dec=1)
 #################
 if(!require(pacman))install.packages("pacman")
 pacman::p_load(lme4, glmmLasso, glmnet, mcmc, statmod, cluster,
