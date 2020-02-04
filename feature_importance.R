@@ -137,7 +137,7 @@ par(mfrow=c(1,2))
 # plotVIP(regrModel.anae, model='min')
 # plotVIP(regrModel.anae.sample, model='min')
 # plotVIP(regrModel.anae, model='med')
-plotVIP(regrModel.anae.sample, model='med')
+plotVIP(regrModel.anae.sample, model='min')
 
 # plotVIP(regrModel.seda, model='min')
 # plotVIP(regrModel.seda.sample, model='min')
@@ -200,46 +200,6 @@ bayes_HLM %>% report(standardize="smart", effsize="cohen1988") %>% to_fulltext()
 
 library("cgam") # constrained general additive models
 
-data("Rubber", package = "MASS"); Rubber <- Rubber
-
-fit.decr <- cgam(loss ~ decr(hard) + decr(tens),family = gaussian,data = Rubber)
-fit.s.decr <- cgam(loss ~ s.decr(hard) + s.decr(tens),family = gaussian,data = Rubber)
-fit.s <- cgam(loss ~ s(hard) + s(tens), family = gaussian, data = Rubber)
-
-par(mfrow = c(1, 3))
-plotpersp(fit.decr, th = 120, main = "(a)", ngrid = 31)
-plotpersp(fit.s.decr, th = 120, main = "(b)", ngrid = 31)
-plotpersp(fit.s, th = 120, main = "(c)", ngrid = 31)
-
-par(mfrow = c(1, 1))
-data("plasma", package = "cgam")
-fit <- cgam(logplasma ~ 
-              s.decr.decr(bmi, logdietfat,numknots = c(10, 10)) +
-              factor(smoke) + factor(vituse),
-            data = plasma)
-summary(fit)
-fit$pen
-par(mfrow = c(4, 4))
-
-for (i in c(1:16)) {
-  plotpersp(fit, th = (720/16)*i)
-}
-
-plotpersp(fit, th = 270, main = "(c)")
-par(mfrow = c(1, 1))
-
-library(MASS)
-data(Rubber)
-# do a variable and shape selection with four possible shapes
-# increasing, decreasing, convex and concave
-ans <- ShapeSelect(loss ~ shapes(hard, set = c("incr", "decr", "conv", "conc"))
-                   + shapes(tens, set = c("incr", "decr", "conv", "conc")),
-                   data = Rubber, genetic = TRUE)
-# check the best fit, which is an object of the cgam class
-bf <- best.fit(ans)
-class(bf)
-plotpersp(bf)
-
 ans <- ShapeSelect(NIRS_proc_min ~ shapes(FiO2, set = c("incr")) +
                      shapes(HF, set= c("incr")),
                    data = sample_anae %>% filter(HF < 160))
@@ -247,13 +207,23 @@ ans <- ShapeSelect(NIRS_proc_min ~ shapes(FiO2, set = c("incr")) +
 
 
 
-fit1 <- cgam(NIRS_proc_min ~ s.incr.incr(FiO2, HF, numknots = c(20, 20)),
+fit1 <- cgam(NIRS_proc_min ~ s.incr.incr(FiO2, HF, numknots = c(20, 20)), # manual generated
              data = sample_anae %>% filter(HF < 150))
 plotpersp(fit1,  main = "3D Plot of a Smooth Cgam Fit1"); summary(fit1)
 
-fit2 <- ShapeSelect(NIRS_proc_min ~ shapes(FiO2) + shapes(HF),
-                   data = sample_anae %>% filter(HF < 150), genetic = TRUE)
-plotpersp(fit2,  main = "3D Plot of a Smooth Cgam Fit2"); summary(fit2)
+autofit_anae_FIO2_HF <- ShapeSelect(NIRS_proc_min ~ shapes(FiO2) + shapes(HF),     # computer generated 
+                        data = sample_anae %>% filter(HF < 150), genetic = TRUE)
+
+
+autofit_anae_SpO2_HF <- ShapeSelect(NIRS_proc_min ~ shapes(SpO2) + shapes(HF),     # computer generated 
+                                    data = sample_anae %>% filter(HF < 150), genetic = TRUE)
+
+autofit_seda_SpO2_HF <- ShapeSelect(NIRS_proc_min ~ shapes(SpO2) + shapes(HF),     # computer generated 
+                                    data = sample_seda %>% filter(HF < 150) %>% 
+                                      select(SpO2, HF, NIRS_proc_min) %>% na.omit(),
+                                    genetic = TRUE)
+
+
 
 sample_anae$HF %>% DataExplorer::plot_histogram()
 sample_anae$FiO2 %>% DataExplorer::plot_histogram()
@@ -261,31 +231,40 @@ sample_anae$FiO2 %>% DataExplorer::plot_histogram()
 #### ITSADUG #####################################################################
 
 library(itsadug); library(mgcv)
-mod_gam <- mgcv::gam(NIRS_proc_min ~ s(HF) + s(FiO2) + te(Patient, timediff, bs = 're'),
-                     #correlation = corAR1(form = ~ time),
-                     data = anae_scal,
-                     method = "ML") 
-# method = "GCV.Cp"  te(ID, time, bs="fs", m=1, k = 5),
-# s(time) + s(ID, bs = 're'),
-summary(mod_gam)
-par(mfrow=c(2,2)); gam.check(mod_gam); par(mfrow=c(1,1))
+# mod_gam <- mgcv::gam(NIRS_proc_min ~ s(HF) + s(FiO2) + te(Patient, timediff, bs = 're'),
+#                      #correlation = corAR1(form = ~ time),
+#                      data = anae_scal,
+#                      method = "ML") 
+# # method = "GCV.Cp"  te(ID, time, bs="fs", m=1, k = 5),
+# # s(time) + s(ID, bs = 're'),
+# summary(mod_gam)
+# par(mfrow=c(2,2)); gam.check(mod_gam); par(mfrow=c(1,1))
+# 
+# fvisgam(mod_gam, view=c("HF", "FiO2"), rm.ranef=TRUE, main="fvisgam", dec=1)
 
-fvisgam(mod_gam, view=c("HF", "FiO2"), rm.ranef=TRUE, main="fvisgam", dec=1)
 
-
-mod_gam3 <- mgcv::gam(NIRS_proc_min ~ te(HF, SpO2) +
+mod_gam_anae_HF_SPO2 <- mgcv::gam(NIRS_proc_min ~ te(HF, SpO2) +
                         s(Patient, bs = "re"),
-                      #correlation = corAR1(form = ~ timediff),
-                      data = sample_anae %>% 
-                        filter(HF < 150, FiO2 < 90),
+                        #correlation = corAR1(form = ~ timediff),
+                        data = sample_anae %>% 
+                        filter(HF < 150, FiO2 < 90, HF > 70),
                       method = "ML") 
-fvisgam(mod_gam3, view=c("HF", "SpO2"), rm.ranef=TRUE, main="fvisgam", dec=1)
-summary(mod_gam3)
+fvisgam(mod_gam_anae_HF_SPO2, view=c("HF", "SpO2"), rm.ranef=TRUE, main="fvisgam", dec=1)
+summary(mod_gam_anae_HF_SPO2)
+
+mod_gam_seda_HF_SPO2 <- mgcv::gam(NIRS_proc_min ~ s(HF, k = 5) + s(SpO2, k = 5) +
+                                    s(Patient, bs = "re"),
+                                  #correlation = corAR1(form = ~ timediff),
+                                  data = sample_seda %>% 
+                                    filter(HF < 150),
+                                  method = "ML") 
+fvisgam(mod_gam_seda_HF_SPO2, view=c("HF", "SpO2"), rm.ranef=TRUE, main="fvisgam", dec=1)
+summary(mod_gam_seda_HF_SPO2)
 
 
 
 
-mod_gam2 <- mgcv::gam(NIRS_proc_min ~ s(HF) + s(FiO2) + 
+mod_gam_anae <- mgcv::gam(NIRS_proc_min ~ s(HF) + s(FiO2) + 
                         te(Patient, timediff, bs="fs", m=1, k = 5),
                      #correlation = corAR1(form = ~ timediff),
                      data = no_interpolation %>% 
@@ -293,7 +272,21 @@ mod_gam2 <- mgcv::gam(NIRS_proc_min ~ s(HF) + s(FiO2) +
                        na.omit() %>% filter(Group != "Sedation", HF < 150, FiO2 < 80),
                      method = "ML") 
 summary(mod_gam2)
-fvisgam(mod_gam2, view=c("HF", "FiO2"), rm.ranef=TRUE, main="fvisgam", dec=1)
+fvisgam(mod_gam2, view=c("HF", "FiO2"), rm.ranef=TRUE, main="anaesthesia", dec=1)
+
+
+mod_gam_seda <- mgcv::gam(NIRS_proc_min ~ s(HF) + s(FiO2) + s(timediff),
+                      #te(Patient, timediff, bs="fs"),
+                      #correlation = corAR1(form = ~ timediff),
+                      data = no_interpolation %>% 
+                        select(Patient, Group, timediff, HF, FiO2, NIRS_proc_min) %>% 
+                        na.omit() %>% filter(Group == "Sedation", HF < 150),
+                      method = "ML") 
+summary(mod_gam_seda)
+fvisgam(mod_gam_seda, view=c("HF", "FiO2"), rm.ranef=TRUE, main="fvisgam", dec=1)
+
+
+
 #################
 if(!require(pacman))install.packages("pacman")
 pacman::p_load(lme4, glmmLasso, glmnet, mcmc, statmod, cluster,
