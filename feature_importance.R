@@ -303,7 +303,7 @@ fvisgam(mod_gam_anae2, view=c("FiO2","HF"), rm.ranef=FALSE, main="anaesthesia", 
         )
 
 
-plot(mod_gam_anae2, select=1, labcex = 1,shade=TRUE, rug=FALSE)
+plot(mod_gam_anae2, select=1, labcex = 0.7,  rug=FALSE)
 
 
 
