@@ -251,36 +251,36 @@ library(itsadug); library(mgcv)
 # fvisgam(mod_gam, view=c("HF", "FiO2"), rm.ranef=TRUE, main="fvisgam", dec=1)
 
 
-mod_gam_anae_HF_SPO2 <- mgcv::gam(NIRS_proc_min ~ te(HF, SpO2) +
-                        s(Patient, bs = "re"),
-                        #correlation = corAR1(form = ~ timediff),
-                        data = sample_anae %>% 
-                        filter(HF < 150, FiO2 < 90, HF > 70),
-                      method = "ML") 
-fvisgam(mod_gam_anae_HF_SPO2, view=c("HF", "SpO2"), rm.ranef=TRUE, main="fvisgam", dec=1)
-summary(mod_gam_anae_HF_SPO2)
-
-mod_gam_seda_HF_SPO2 <- mgcv::gam(NIRS_proc_min ~ s(HF, k = 5) + s(SpO2, k = 5) +
-                                    s(Patient, bs = "re"),
-                                  #correlation = corAR1(form = ~ timediff),
-                                  data = no_ %>% 
-                                    filter(HF < 150),
-                                  method = "ML") 
-fvisgam(mod_gam_seda_HF_SPO2, view=c("HF", "SpO2"), rm.ranef=TRUE, main="fvisgam", dec=1)
-summary(mod_gam_seda_HF_SPO2)
+# mod_gam_anae_HF_SPO2 <- mgcv::gam(NIRS_proc_min ~ te(HF, SpO2) +
+#                         s(Patient, bs = "re"),
+#                         #correlation = corAR1(form = ~ timediff),
+#                         data = sample_anae %>% 
+#                         filter(HF < 150, FiO2 < 90, HF > 70),
+#                       method = "ML") 
+# fvisgam(mod_gam_anae_HF_SPO2, view=c("HF", "SpO2"), rm.ranef=TRUE, main="fvisgam", dec=1)
+# summary(mod_gam_anae_HF_SPO2)
+# 
+# mod_gam_seda_HF_SPO2 <- mgcv::gam(NIRS_proc_min ~ s(HF, k = 5) + s(SpO2, k = 5) +
+#                                     s(Patient, bs = "re"),
+#                                   #correlation = corAR1(form = ~ timediff),
+#                                   data = no_ %>% 
+#                                     filter(HF < 150),
+#                                   method = "ML") 
+# fvisgam(mod_gam_seda_HF_SPO2, view=c("HF", "SpO2"), rm.ranef=TRUE, main="fvisgam", dec=1)
+# summary(mod_gam_seda_HF_SPO2)
 
 ##
 
-mod_gam_anae1 <- mgcv::gam(NIRS_proc_min ~ s(HF) + s(FiO2) + 
-                        te(Patient, timediff, bs="fs", m=1, k = 5),
-                     correlation = corAR1(form = ~ timediff),
-                     data = no_interpolation %>% 
-                       select(Patient, Group, timediff, HF, FiO2, NIRS_proc_min) %>% 
-                       na.omit() %>% filter(Group != "Sedation", HF < 140, FiO2 < 80),
-                     method = "ML") 
-summary(mod_gam_anae1)
-fvisgam(mod_gam_anae1, view=c("FiO2","HF"),
-        rm.ranef=FALSE, main="anaesthesia", dec=1)
+# mod_gam_anae1 <- mgcv::gam(NIRS_proc_min ~ s(HF) + s(FiO2) + 
+#                         te(Patient, timediff, bs="fs", m=1, k = 5),
+#                      correlation = corAR1(form = ~ timediff),
+#                      data = no_interpolation %>% 
+#                        select(Patient, Group, timediff, HF, FiO2, NIRS_proc_min) %>% 
+#                        na.omit() %>% filter(Group != "Sedation", HF < 140, FiO2 < 80),
+#                      method = "ML") 
+# summary(mod_gam_anae1)
+# fvisgam(mod_gam_anae1, view=c("FiO2","HF"),
+#         rm.ranef=FALSE, main="anaesthesia", dec=1)
 
 
 mod_gam_anae2 <- mgcv::gam(NIRS_proc_min ~ te(FiO2,HF, bs="gp") + 
