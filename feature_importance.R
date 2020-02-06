@@ -152,24 +152,32 @@ rm(regrModel.anae.sample, regrModel.seda.sample)
 
 library(rpart); library(rpart.plot)
 
-sample_anae_tree <- rpart(NIRS_deviation ~ FiO2 + HF + SpO2 + Months,
+sample_anae_tree <- rpart(NIRS_deviation ~ FiO2 + HF + SpO2,
                           control = list(maxdepth = 5),
                           data = sample_anae %>% filter(FiO2 > 22, Weight > 6), 
                           model = TRUE)
 #plot(sample_anae_tree); text(sample_anae_tree)
 prp(sample_anae_tree); par(mfrow=c(1,1))
 
-sample_seda_tree <- rpart(NIRS_deviation ~ Months + Weight + SpO2 + HF + BP_sys + BP_dia + BP_mid,
-                          control = list(maxdepth = 2),
+sample_seda_tree <- rpart(NIRS_deviation ~ FiO2 + HF + SpO2,
+                          control = list(maxdepth = 3),
                           data = sample_seda)
 #plot(sample_seda_tree); text(sample_seda_tree)
 prp(sample_seda_tree); par(mfrow=c(1,1))
 
 
+sample <- rbind(sample_anae, sample_seda)
+sample_tree <- rpart(NIRS_deviation ~ Group + Weight + SpO2 + HF + BP_sys + BP_dia + BP_mid,
+                          control = list(maxdepth = 3),
+                          data = sample)
+plot(sample_tree); text(sample_tree)
+prp(sample_tree)
+
+
 library(C50)
-c5tree <- C5.0(NIRS_deviation ~ FiO2 + HF + Weight , 
-               data = sample_anae %>% filter(FiO2 > 22, Weight > 6), 
-               trials = 17,
+c5tree <- C5.0(NIRS_deviation ~ Group + Weight + SpO2 + HF + BP_dia, 
+               data = sample, 
+               trials = 5,
                control = C5.0Control(winnow = TRUE))
 summary(c5tree)
 C5imp(c5tree)
@@ -179,7 +187,8 @@ rm(c5tree, sample_anae_tree, sample_seda_tree)
 
 #### MULTILEVEL BAYESIAN MODEL ###################################################
 
-scaled_interpolation <- interpolation %>% select(Patient, Group:NIRS_proc_min) %>% 
+scaled_no_interpolation <- no_interpolation %>%
+  select(Patient, Group:NIRS_proc_min) %>% 
   mutate_at(vars(Months:CO2), stdize, na.rm = T) 
   
 library(parallel)
@@ -187,9 +196,11 @@ library(doParallel)
 library(rstanarm)
 options(mc.cores = parallel::detectCores()-2)
 
-bayes_HLM <- stan_glmer(NIRS_proc_min ~ FiO2 + SpO2 + Weight + HF + (1|Patient),
-                        data=scaled_interpolation %>% filter(Group != "Sedation") ,
-                        family="gaussian", iter = 4000, chains = 6)
+bayes_HLM <- stan_glmer(NIRS_proc_min ~ FiO2 + HF + (1|Patient),
+                        family="gaussian",
+                        data= no_interpolation,
+                        iter = nrow(scaled_no_interpolation)*5, 
+                        chains = parallel::detectCores()-2)
 
 library(report)
 bayes_HLM %>% report() %>% to_fulltable()
@@ -211,15 +222,12 @@ fit1 <- cgam(NIRS_proc_min ~ s.incr.incr(FiO2, HF, numknots = c(20, 20)), # manu
              data = sample_anae %>% filter(HF < 150))
 plotpersp(fit1,  main = "3D Plot of a Smooth Cgam Fit1"); summary(fit1)
 
-autofit_anae_FIO2_HF <- ShapeSelect(NIRS_proc_min ~ shapes(FiO2) + shapes(HF),     # computer generated 
-                        data = sample_anae %>% filter(HF < 150), genetic = TRUE)
+autofit_anae_FIO2_HF <- ShapeSelect(NIRS_proc_min ~ shapes(SpO2) + shapes(HF),     # computer generated 
+                        data = sample_anae %>% filter(HF < 140), genetic = TRUE)
 
-
-autofit_anae_SpO2_HF <- ShapeSelect(NIRS_proc_min ~ shapes(SpO2) + shapes(HF),     # computer generated 
-                                    data = sample_anae %>% filter(HF < 150), genetic = TRUE)
 
 autofit_seda_SpO2_HF <- ShapeSelect(NIRS_proc_min ~ shapes(SpO2) + shapes(HF),     # computer generated 
-                                    data = sample_seda %>% filter(HF < 150) %>% 
+                                    data = sample_seda %>% filter(HF < 140) %>% 
                                       select(SpO2, HF, NIRS_proc_min) %>% na.omit(),
                                     genetic = TRUE)
 
@@ -255,52 +263,54 @@ summary(mod_gam_anae_HF_SPO2)
 mod_gam_seda_HF_SPO2 <- mgcv::gam(NIRS_proc_min ~ s(HF, k = 5) + s(SpO2, k = 5) +
                                     s(Patient, bs = "re"),
                                   #correlation = corAR1(form = ~ timediff),
-                                  data = sample_seda %>% 
+                                  data = no_ %>% 
                                     filter(HF < 150),
                                   method = "ML") 
 fvisgam(mod_gam_seda_HF_SPO2, view=c("HF", "SpO2"), rm.ranef=TRUE, main="fvisgam", dec=1)
 summary(mod_gam_seda_HF_SPO2)
 
+##
 
-
-
-mod_gam_anae <- mgcv::gam(NIRS_proc_min ~ s(HF) + s(FiO2) + 
+mod_gam_anae1 <- mgcv::gam(NIRS_proc_min ~ s(HF) + s(FiO2) + 
                         te(Patient, timediff, bs="fs", m=1, k = 5),
-                     #correlation = corAR1(form = ~ timediff),
+                     correlation = corAR1(form = ~ timediff),
                      data = no_interpolation %>% 
                        select(Patient, Group, timediff, HF, FiO2, NIRS_proc_min) %>% 
-                       na.omit() %>% filter(Group != "Sedation", HF < 150, FiO2 < 80),
+                       na.omit() %>% filter(Group != "Sedation", HF < 140, FiO2 < 80),
                      method = "ML") 
-summary(mod_gam2)
-fvisgam(mod_gam2, view=c("HF", "FiO2"), rm.ranef=TRUE, main="anaesthesia", dec=1)
+summary(mod_gam_anae1)
+fvisgam(mod_gam_anae1, view=c("FiO2","HF"),
+        rm.ranef=FALSE, main="anaesthesia", dec=1)
 
 
-mod_gam_seda <- mgcv::gam(NIRS_proc_min ~ s(HF) + s(FiO2) + s(timediff),
-                      #te(Patient, timediff, bs="fs"),
-                      #correlation = corAR1(form = ~ timediff),
-                      data = no_interpolation %>% 
-                        select(Patient, Group, timediff, HF, FiO2, NIRS_proc_min) %>% 
-                        na.omit() %>% filter(Group == "Sedation", HF < 150),
-                      method = "ML") 
-summary(mod_gam_seda)
-fvisgam(mod_gam_seda, view=c("HF", "FiO2"), rm.ranef=TRUE, main="fvisgam", dec=1)
+mod_gam_anae2 <- mgcv::gam(NIRS_proc_min ~ te(FiO2,HF, bs="gp") + 
+                             t2(Patient, timediff, bs="fs"),
+                           correlation = corAR1(form = ~ timediff),
+                           data = no_interpolation %>% 
+                             select(Patient, Group, timediff, HF, FiO2, NIRS_proc_min) %>% 
+                             na.omit() %>% filter(Group != "Sedation", HF < 140, FiO2 < 80),
+                           method = "ML") 
+summary(mod_gam_anae2)
+
+par(mfrow=c(1,1))
+
+fvisgam(mod_gam_anae2, view=c("FiO2","HF"), rm.ranef=FALSE, main="anaesthesia", dec=0,
+        #plot.type = "persp",
+        color = "topo",
+        labcex = 1,
+        hide.label = TRUE
+        #nCol = 19
+        )
+
+
+plot(mod_gam_anae2, select=1, labcex = 1,shade=TRUE, rug=FALSE)
 
 
 
-#################
-if(!require(pacman))install.packages("pacman")
-pacman::p_load(lme4, glmmLasso, glmnet, mcmc, statmod, cluster,
-               factoextra, randomForest, party, nnet, mclust, MASS,
-               invgamma, coda, corrplot, lmmen, caret, xtable, bestNormalize)
 
 
-library(glmmLasso)
-data(knee)
-knee[,c(2,4:6)]<-scale(knee[,c(2,4:6)],center=TRUE,scale=TRUE)
-knee<-data.frame(knee)
-## fit adjacent category model
-glm.obj <- glmmLasso(pain ~ time + th + age + sex, rnd = NULL,
-                     family = acat(), data = knee, lambda=10,
-                     switch.NR=TRUE, control=list(print.iter=TRUE))
-summary(glm.obj)
+
+##
+
+
 
