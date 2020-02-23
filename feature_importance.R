@@ -158,77 +158,9 @@ par(mfrow=c(2,2)); gam.check(mod_gam); par(mfrow=c(1,1))
 fvisgam(mod_gam, view=c("HF", "FiO2"), rm.ranef=TRUE, main="fvisgam", dec=1)
 
 #################
-if(!require(pacman))install.packages("pacman")
-pacman::p_load(lme4, glmmLasso, glmnet, mcmc, statmod, cluster,
-               factoextra, randomForest, party, nnet, mclust, MASS,
-               invgamma, coda, corrplot, lmmen, caret, xtable, bestNormalize)
 
+sample_anae <- samples %>% filter(Group != "Sedation")
 
-
-library(grpreg)
-library("lars")
-data(diabetes)
-attach(diabetes)
-
-# x1-x4: age, sex, BMI, BP;
-# x5-x10: serum measurements
-
-group <- c(rep(1,4), rep(2,6))
-par(mfrow=c(2,3))
-
-fit <- grpreg(x,y,group,penalty="grLasso") #will have some problems
-
-x = as.data.frame(x)
-x = as.matrix(x)
-fit <- grpreg(x,y,group,penalty="grLasso")
-
-plot(fit,main = "Group Lasso")
-
-fit <- grpreg(x,y,group,penalty="grMCP") # The former involves an MCP penalty being applied to an L2-norm of each group.
-plot(fit, main = "Group MCP")
-
-fit <- grpreg(x,y,group,penalty="grSCAD")
-plot(fit, main = "Group SCAD")
-
-# bi-level selection
-# Group exponential lasso
-
-#Bi-level means carrying out variable selection at the group level as well as the level of individual covariates (i.e., selecting important groups as well as important members of those groups)
-#Group selection selects important groups, and not members within the group â€“ i.e., within a group, coefficients will either all be zero or all nonzero.
-
-fit <- grpreg(x,y,group,penalty="gel") #Group exponential lasso
-plot(fit, main ="gel")
-
-fit <- grpreg(x,y,group,penalty="cMCP") # a hierarchical penalty which places an outer MCP penalty on a sum of inner MCP penalties for each group
-plot(fit, main ="cMCP")
-
-dev.off()
-
-#However, especially when p is large compared with n, grpreg may fail to converge at low values of lambda, where models are nonidentifiable or nearly singular. Often, this is not the region of the coefficient path that is most interesting.
-
-res <- select(fit, criterion = "AIC")
-res$lambda
-
-# cross-validation
-# default penalty is grLasso
-
-par(mfrow=c(1,2))
-
-cvfit <- cv.grpreg(x, y, group, seed =12345)
-
-# lambda based on minimum cv error rule
-cvfit$lambda.min
-cvfit$cve
-cvfit$cvse
-
-plot(cvfit)
-summary(cvfit)
-coef(cvfit) ## Beta at minimum CVE
-
-cvfit <- cv.grpreg(x, y, group, penalty = "grSCAD")
-plot(cvfit)
-summary(cvfit)
-coef(cvfit) ## Beta at minimum CVE
-
-
-dev.off()
+library("cgam") # constrained general additive models
+autofit_anae_FIO2_HF <- ShapeSelect(NIRS_proc_min ~ shapes(FiO2) + shapes(HF),     # computer generated
+                                    data = sample_anae %>% filter(HF < 150), genetic = TRUE)

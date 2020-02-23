@@ -172,3 +172,6 @@ boot_data %>%
        The vertical axis is logarithmic to highlight the outliers.")+
   theme(plot.caption = element_text(size = 12, hjust = 0))
 
+# library("cgam") # constrained general additive models
+# autofit_anae_FIO2_HF <- ShapeSelect(NIRS_proc_min ~ shapes(FiO2) + shapes(HF),     # computer generated
+#                                     data = sample_anae %>% filter(HF < 150), genetic = TRUE)
