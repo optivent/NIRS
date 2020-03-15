@@ -137,7 +137,7 @@ library(doParallel)
 library(rstanarm)
 options(mc.cores = parallel::detectCores()-1)
 
-bayes_HLM <- stan_glmer(NIRS_proc_min ~ FiO2 + SpO2 + Weight + HF  + BP_dia + CO2 + 
+bayes_HLM <- stan_glmer(NIRS_proc_min ~ FiO2 + HF + 
                           (1|Patient),
                         data=anae_scal, family="gaussian", iter = 4250, chains = 7)
 
