@@ -137,9 +137,9 @@ library(doParallel)
 library(rstanarm)
 options(mc.cores = parallel::detectCores()-1)
 
-bayes_HLM <- stan_glmer(NIRS_proc_min ~ FiO2 + HF + 
+bayes_HLM <- stan_glmer(NIRS_proc_min ~  BP_dia + 
                           (1|Patient),
-                        data=anae_scal, family="gaussian", iter = 4250, chains = 7)
+                        data=anae_scal, family="gaussian", iter = 5000, chains = 6)
 
 library(report)
 bayes_HLM %>% report() %>% to_fulltable()
@@ -148,7 +148,7 @@ bayes_HLM %>% report(standardize="smart", effsize="cohen1988") %>% to_fulltext()
 library(itsadug); library(mgcv)
 mod_gam <- mgcv::gam(NIRS_proc_min ~ s(HF) + s(FiO2) + te(Patient, timediff, bs = 're'),
                      #correlation = corAR1(form = ~ time),
-                     data = anae_scal,
+                     data = manualtable %>% filter(Group != "Sedation"),
                      method = "ML") 
 # method = "GCV.Cp"  te(ID, time, bs="fs", m=1, k = 5),
 # s(time) + s(ID, bs = 're'),

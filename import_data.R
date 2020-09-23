@@ -49,7 +49,7 @@ list.files(pattern = NULL) %>%
     L_NIRS = X5,  L_Event = X6,  L_Status = X7,  L_BaseLine = X8,  L_Alarm = X11, 
     R_NIRS = X16, R_Event = X17, R_Status = X18, R_BaseLine = X19, R_Alarm = X22 
   )  ->
-  data1                                                    ## 150256 obs of 12 variables
+  data1                                                 ## 150256 obs of 12 variables
 
 # load the path with unread dates ()
 setwd(here("inputs/raw_data_NIRS2"))
@@ -266,4 +266,163 @@ manualtable$Patient %<>% as.factor()
 
 library(feather)
 write_feather(manualtable, "manualtable.feather")
+
+########### inter-group statistics #########
+
+chunk1 <- group_by(select(data, -c(datetime:Fallnr)), Group, Patient) %>%
+  summarise(across(.cols = c(Gender:Weight,NIRS_min:PROC_avg), ~ first(.))) %>% 
+ungroup() %>% mutate(Patient = as.character(Patient))
+
+chunk2 <- select(IIDKey, Patient, Lbaseline, Rbaseline) %>% mutate(Patient = as.character(Patient))
+
+library(readxl)
+chunk3 <- mutate_all(read_excel(here("inputs/some_scores.xlsx"))[1:3],extract_numeric) %>% 
+  transmute(Patient = as.character(ID), WSS)
+
+vitals <- manualtable %>%
+  rename_with(.fn= str_remove_all, "BP_", .cols = matches("BP")) %>% 
+  rename(SBP = sys, DBP = dia, MBP = mid, HR = HF) %>% 
+  relocate(MBP, .before = "DBP") 
+
+vitals <- vitals %>% group_by(Group,Patient) %>%
+  summarise(across(SpO2:CO2, median, na.rm = TRUE)) %>%
+  mutate_if(is.numeric, ~ifelse(abs(.) == Inf,NA,round(.,0))) %>% 
+  mutate(Patient = as.character(Patient)) %>% 
+  mutate(across(matches("SpO2|Fi"), ~ ./100)) 
+
+summary <- list(chunk1,chunk2,chunk3) %>%
+  reduce(left_join, by = "Patient") %>%
+  rowwise() %>% 
+    mutate(BL = floor((Lbaseline + Rbaseline)/2), .after = Weight) %>% 
+    mutate(across(matches("Weight|PROC"), round, 0)) %>% 
+    mutate(across(matches("PROC"), ~ ./100)) %>% 
+  ungroup() %>% 
+  select(Group:Weight, WSS, BL) %>% 
+  mutate(WSS = replace_na(WSS,3)) %>% 
+  rename(gender = Gender, age = Months, weight = Weight) %>% 
+  left_join(.,vitals) %>% 
+  filter(Patient != "54") %>% select(Group:BL, matches("O2"), HR:DBP)
+
+summary %>% group_by(Group) %>% 
+  gt(rowname_col = "Patient") %>% 
+  tab_header(title = "Supplementary Table II") %>%
+  cols_align(align = "center") %>% 
+  fmt_percent(matches("SpO|FiO"), decimals = 0) %>% 
+  tab_source_note(md(
+    "Age in months, weight in kilogram, WSS = Wilson Sedation Scale, BL = NIRS baseline,  
+    SpO2 = pulsoximetry, FiO2 = fraction of inspired oxygen, CO2 = expired carbon dioxide (mmHg)  
+    HR = heart rate, SBP/MBP/DBP = systolic/median/diastolic blood pressure (mmHg)"))
+
+med_iqr <- function(x){
+  round(
+    quantile(x, probs = c(0.25,0.5,0.75),
+               na.rm = TRUE, names = FALSE)
+  ) %>%paste(collapse = "|")
+}
+
+summary %>% select(Group,age:DBP) %>%
+  mutate(across(.cols = c(SpO2:FiO2), ~ .*100)) %>% 
+  group_by(Group) %>%
+  summarise(across(where(is.double), .fns = med_iqr)) %>% 
+  group_by(Group) %>% 
+  gt() %>% 
+  tab_header(title = "The 1st | 2nd | 3rd quartile of the studied variables per group") %>%
+  cols_align(align = "center") %>% 
+  tab_source_note(md(
+    "Age in months, weight in kilogram, WSS = Wilson Sedation Scale, BL = NIRS baseline,  
+    SpO2 = pulsoximetry, FiO2 = fraction of inspired oxygen, CO2 = expired carbon dioxide (mmHg),   
+    HR = heart rate, SBP/MBP/DBP = systolic/median/diastolic blood pressure (mmHg)"))
+
+library(dunn.test)
+summary %>%
+  select(age:DBP) %>% 
+  map_dfr(~ dunn.test(.x,g = summary$Group,method = "bonferroni") %>%
+            as_tibble() %>% select(4:5) %>% 
+            pivot_wider(names_from = comparisons, values_from = P.adjusted), 
+          .id = "variable") %>% 
+  mutate(across(where(is.double), ~ round(.x, digits = 3))) %>% 
+  pivot_longer(cols = -variable) %>% rename(groups = 2, adj_p_val = 3) %>% 
+  pivot_wider(names_from = variable, values_from = adj_p_val) %>% 
+  group_by(groups) %>%
+  gt() %>% 
+  cols_align(align = "center") %>% 
+  tab_header(title = "p-values of the Dunn's test across groups") %>% 
+  tab_source_note(md(
+    "using Bonferroni correction, the Ho can be rejected if p < alpha/2 (values < 0.025),  
+    Age in months, weight in kilogram, WSS = Wilson Sedation Scale, BL = NIRS baseline,  
+    SpO2 = pulsoximetry, FiO2 = fraction of inspired oxygen, CO2 = expired carbon dioxide (mmHg),   
+    HR = heart rate, SBP/MBP/DBP = systolic/median/diastolic blood pressure (mmHg)
+    "))
+
+library(forcats)
+summary %>% select(Group, age:DBP, -WSS) %>%
+  mutate(across(where(is.double), scales::rescale)) %>% 
+  pivot_longer(cols = -Group) %>% 
+  ggplot(aes(x = value, fill = Group, color = Group)) +
+    geom_histogram(bins = 20, alpha = 0.33) +
+    geom_density(alpha = 0.33) +
+    facet_grid(name ~ Group, scales = "free",  switch="y") + 
+    theme(
+      legend.position="none", 
+      axis.title.x=element_blank(),axis.text.x=element_blank(),axis.ticks.x=element_blank(),
+      axis.title.y=element_blank(),axis.text.y=element_blank(),axis.ticks.y=element_blank(),
+      plot.caption = element_text(hjust = .5), plot.title = element_text(hjust = 0.5),
+      plot.subtitle = element_text(hjust = 0.5, size = rel(0.9))
+      ) +
+  labs(title = "Histogram per variable(horizontal) and group(vertical)",
+       subtitle = "all variables are scaled between their global minimum (left) and maximum (right)",
+       caption = "
+       BL = NIRS baseline, SpO2 = pulsoximetry, FiO2 = fraction of inspired oxygen, CO2 = expired carbon dioxide,
+       HR = heart rate, SBP/MBP/DBP = systolic/median/diastolic blood pressure")
+  
+med_iqr <- function(x){
+  round(
+    quantile(x, probs = c(0.25,0.5,0.75),
+             na.rm = TRUE, names = FALSE)
+  ) %>% paste(collapse = " | ")
+}
+
+manualtable %>%
+  select(Group, Patient, matches("BP")) %>%
+  group_by(Group, Patient) %>%
+  summarise(across(matches("BP"), med_iqr)) %>% 
+  rename(systolic_BP = 3, diastolic_BP = 4, mean_BP = 5) %>% 
+  relocate(mean_BP, .after = systolic_BP) %>% 
+  group_by(Group) %>% 
+  gt(rowname_col = "Patient") %>% 
+  cols_align(align = "center") %>% 
+  tab_header(title = md("The 1st, 2nd, and 3rd quartile of blood pressure")) %>% 
+  tab_source_note(md(
+    "the first column from links is patient's ID,  
+    the values xx | xx | xx encodes the percentile 25,50,and 75, respectively for each patient
+    "))
+
+rm(med_iqr)
+
+
+percentBP <- function(x){
+  x <- na.omit(x)
+  first <- first(x)
+  min <- min(x)
+  proc <- as.integer( 100*min( (x-first)/first )  )
+  result <- paste0("[",first,"] ",min,"mmHg / ", proc, "%")
+  return(result)
+}
+
+manualtable %>%
+  select(Group, Patient, matches("BP")) %>% na.omit() %>% 
+  group_by(Group, Patient) %>%
+  summarise(across(matches("BP"), percentBP)) %>% 
+  rename(systolic_press = 3, diastolic_press = 4, mean_press = 5) %>% 
+  relocate(mean_press, .after = systolic_press) %>% 
+  group_by(Group) %>% gt(rowname_col = "Patient") %>% 
+  cols_align(align = "center") %>% 
+  tab_header(title = md("Baseline blood pressure and the lowest value per patient")) %>% 
+  tab_source_note(md(
+    "the first column from links is patient's ID,  
+    [xx] is the baseline blood pressure in mmHg,  
+    the second value represents the lowest value per patient,  
+    xx% shows the lowest percentual drop in blood pressure compared to the baseline
+    "))
+
 

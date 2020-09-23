@@ -102,8 +102,8 @@ g <- data %>%
   transmute(
     Patient = as.factor(paste(
       Group,
-      paste0("Patient# ",Patient),
-      paste0(Months," months old ",Gender),
+      #paste0("Patient# ",Patient),
+      #paste0(Months," months old ",Gender),
       #paste0(`% time under baseline`,"% time under baseline "),
       #paste0(`Alarms (seconds)`," seconds under - 20% "),
       sep="\n")),
@@ -127,9 +127,10 @@ g %>% ggplot(aes(x = time,y = value,colour = name, group = name)) +
     ) +
   guides(color = guide_legend(override.aes = list(size=5))) +
   facet_wrap(.~Patient, scales = "free_x") +
-  labs(title = "Figure 1. NIRS monitoring in children with events",
-       y = "procentual deviation from baseline (0%)",
-       x = "time in minutes") 
+  labs(
+    #title = "Figure 1. NIRS monitoring in children with events",
+    y = "procentual deviation from baseline (0%)",
+    x = "time in minutes") 
 
 rm(g)
 
@@ -163,15 +164,24 @@ boot_data %>%
   geom_vline(aes(xintercept = -0.2), colour="red", linetype = "longdash")+
   facet_wrap(~Group) +
   theme_bw(base_size = 16) +
-  labs(subtitle = "Figure 2. Histogram of the negative procentual NIRS desaturations", 
+  labs(#subtitle = "Figure 2. Histogram of the negative procentual NIRS desaturations", 
        x = "negative procentual deviation from baseline",
-       y = "number of observations",
-       caption = "
-       Left from the vertical red lines are samples below -20% from baseline, the threshold for alarms.
-       All patients are equally represented by bootstrapping.
-       The vertical axis is logarithmic to highlight the outliers.")+
+       y = "number of observations"
+       #caption = "
+       #Left from the vertical red lines are samples below -20% from baseline, the threshold for alarms.
+       #All patients are equally represented by bootstrapping.
+       #The vertical axis is logarithmic to highlight the outliers."
+       )+
   theme(plot.caption = element_text(size = 12, hjust = 0))
 
 # library("cgam") # constrained general additive models
 # autofit_anae_FIO2_HF <- ShapeSelect(NIRS_proc_min ~ shapes(FiO2) + shapes(HF),     # computer generated
 #                                     data = sample_anae %>% filter(HF < 150), genetic = TRUE)
+
+
+
+### connecting NIRS data from the selected patients with the manual table
+library(feather)
+feather::read_feather(path = here("/inputs/manualtable.feather")) %>% 
+  filter(Patient %in% c(4,24,89)) %>% filter(NIRS_proc_min < 0) %>% 
+  openxlsx::write.xlsx(file = here("outputs/negative_deviations_from_pat_04_24_89.xlsx"))
